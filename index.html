@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event Disposable Camera</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 20px; background: #f7f7f7; }
+    .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
+    button { background: #007aff; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 25px; cursor: pointer; width: 100%; margin-top: 15px; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    #status { margin-top: 15px; font-weight: 500; color: #555; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>Event Camera</h2>
+    <p>Shots remaining: <strong id="remaining">20</strong> / 20</p>
+    
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" />
+    <button id="snapBtn" onclick="triggerCamera()">Take Photo</button>
+    
+    <p id="status"></p>
+  </div>
+
+  <script>
+    // Paste your Google Apps Script Web App URL inside the quotes below:
+    const GOOGLE_SCRIPT_URL = "YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
+    const MAX_SHOTS = 20;
+
+    function getShotCount() {
+      return parseInt(localStorage.getItem('shotsTaken') || '0', 10);
+    }
+
+    function updateUI() {
+      const taken = getShotCount();
+      const remaining = Math.max(0, MAX_SHOTS - taken);
+      document.getElementById('remaining').innerText = remaining;
+      
+      if (remaining <= 0) {
+        const btn = document.getElementById('snapBtn');
+        btn.disabled = true;
+        btn.innerText = "Limit Reached (20/20)";
+      }
+    }
+
+    function triggerCamera() {
+      if (getShotCount() >= MAX_SHOTS) {
+        alert("You have reached your limit of 20 photos!");
+        return;
+      }
+      document.getElementById('cameraInput').click();
+    }
+
+    document.getElementById('cameraInput').addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const taken = getShotCount();
+      if (taken >= MAX_SHOTS) return;
+
+      document.getElementById('status').innerText = "Uploading to Google Drive...";
+      
+      const reader = new FileReader();
+      reader.onload = async function() {
+        const base64Data = reader.result.split(',')[1];
+        const payload = {
+          base64: base64Data,
+          mimeType: file.type,
+          filename: `event_photo_${Date.now()}.jpg`
+        };
+
+        try {
+          await fetch(https://script.google.com/macros/s/AKfycbwi8GUBXh2rE01G45x_DumI9xp_vLzQ2yNj9TyQW-U9khQVEM67zzGCoJWUyK-BVv02/exec, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify(payload)
+          });
+
+          localStorage.setItem('shotsTaken', taken + 1);
+          updateUI();
+          document.getElementById('status').innerText = "Uploaded successfully!";
+        } catch (err) {
+          document.getElementById('status').innerText = "Upload failed. Please try again.";
+        }
+      };
+      
+      reader.readAsDataURL(file);
+    });
+
+    updateUI();
+  </script>
+</body>
+</html>
